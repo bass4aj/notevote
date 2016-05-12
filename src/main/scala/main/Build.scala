@@ -1,6 +1,6 @@
-package sample.hello
+package main
 
-object Main {
+object Build {
 
   def main(args: Array[String]): Unit = {
     val PF = new PF()

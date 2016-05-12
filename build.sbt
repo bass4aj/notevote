@@ -1,10 +1,18 @@
-name := """akka-sample-main-scala"""
+import Libraries.android._
 
-version := "1.0"
+androidBuild
 
-scalaVersion := "2.10.3"
+name := """NoteVote"""
+
+version := Versions.appV
+
+scalaVersion := Versions.scalaV
 
 libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-actor" % "2.3.0"
+  aar(androidDesign),
+  "com.spotify.sdk" % "spotify-auth" % "1.0.0-beta12",
+  "com.spotify.sdk" % "spotify-player" % "1.0.0-beta12"
 )
+
+
 

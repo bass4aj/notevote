@@ -1,6 +1,6 @@
-package sample.hello
+package main
 
-import sample.hello.PF
+import main.PF
 
 import scala.annotation.tailrec
 
@@ -157,7 +157,7 @@ class ServerLink {
    */
   def increment(songURI:String): Unit ={
     voteURI(songURI)
-    PF.increment(songURI)
+    //PF.increment(songURI)
   }
 
   /**
@@ -167,7 +167,7 @@ class ServerLink {
    */
   def decrement(songURI:String): Unit ={
     unVoteURI(songURI)
-    PF.decrement(songURI)
+   // PF.decrement(songURI)
   }
 
   /**

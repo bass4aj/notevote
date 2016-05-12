@@ -1,4 +1,4 @@
-package sample.hello
+package main
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -32,19 +32,19 @@ class PF() {
   songObjects = songObjects:+ new SongObject("12385491851","The Hills","The Weeknd","jonesy716151",1)
   songObjects = songObjects:+ new SongObject("12385491851","Lost Boy","Ruth B","fixitfelix4",2)
 
-
-  @tailrec
+/**
+//  @tailrec
   final def increment(songURI:String, objects:List[SongObject] = songObjects){
     objects match{
       case head::tail if(head.uri == songURI) =>
     }
   }
 
-  @tailrec
+//  @tailrec
   final def decrement(songURI:String){
 
   }
-
+**/
 
   //Used for finding things
   class query() {
