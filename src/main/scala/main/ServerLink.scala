@@ -1,6 +1,5 @@
 package main
-
-import main.PF
+import main.Build.{PF, SPT, query}
 
 import scala.annotation.tailrec
 
@@ -11,23 +10,17 @@ import scala.annotation.tailrec
 class ServerLink {
 
   /*Mark: Variables.*/
-  val PF = new PF()
+  val SearchHandler = new SearchHandler()
   var userID = "guest"
   var isHosting = false
   var cleanUp = false
   var partyObject:PF.PartyObject = null
-  var songsVoted:Map[String,List[String]] = Map()
   var songCleanup:Map[String, Int] = Map()
   var currentLocation = new PF.GeoLocation(100,120)
-  //var songBatch: Array[(String,String,String)] = Array()
-  var musicList/*: [PFObject] */ = Array()
+  var musicList:List[PF.SongObject] = List()
   var rooms:List[PF.PartyObject] = List()
-  var songBatch:List[Song] = List()
-  /* var currentLocation:PFGeoPoint? */
+  var songBatch:List[SPT.Song] = List()
 
-  class Song(var songTitle:String, var trackArtist:String, var uri:String) {
-
-  }
   /*Mark: internal Methods.*/
 
   /**
@@ -35,9 +28,9 @@ class ServerLink {
    * Will append results to rooms variable -- as a list of PFObjects.
    * Finds rooms within 2.0 miles.
    */
-  def findRooms(){ //might need completion handler added.
+  def findRooms(){
     val query = new PF.query()
-    rooms = query.getObjects()
+    this.rooms = query.getObjects()
   }
 
   /**
@@ -47,7 +40,9 @@ class ServerLink {
    * -takes in a Bool(priv) -> used to set the room as private or not.
    */
   def addParty(partyName:String, partyID:String,priv:Boolean,partyPin:String = ""){
-    PF.partyObjects :+ new PF.PartyObject(userID,partyName,partyPin,priv,currentLocation)
+    val party = new PF.PartyObject(userID,partyName,partyPin,priv,currentLocation)
+    setParty(party)
+    PF.addPartyObject(party)
   }
 
   /**
@@ -70,23 +65,8 @@ class ServerLink {
    * -takes in a String(roomID) -> hosts Spotify ID, used to find correct object for deletion.
    */
   def deleteParty(): Unit = {
-    val query = new PF.query()
-    query.deletePartyObject(partyObject)
-  }
-
-  /**
-   * Gets a list of voted songs from the songsVoted dictionary if the room has been entered before.
-   */
-  def getSongsVoted() : List[String] = {
-    return songsVoted(partyObject.partyID)
-  }
-
-  /**
-   * On party entry it checks to see if the user has voted on any songs in the party
-   *      if they have it sets songsVoted to that list of song titles.
-   */
-  def songsVotedCheck(): Unit ={
-
+    PF.deletePartyObject(partyObject)
+    partyObject = null
   }
 
   /**
@@ -95,7 +75,7 @@ class ServerLink {
    * Used when poeple are clicking on songs in Search
    */
   def addSongToBatch(songTitle:String, trackArtist:String, uri:String): Unit ={
-    songBatch = songBatch :+ new Song(songTitle,trackArtist,uri)
+    songBatch = songBatch :+ new SPT.Song(songTitle,trackArtist,uri)
   }
 
   /**
@@ -103,7 +83,7 @@ class ServerLink {
    * Used when people are unclicking songs on Search
    */
   @tailrec
-  final def removeSongFromBatch(songTitle:String, objects:List[Song] = songBatch, result:List[Song] = List()){
+  final def removeSongFromBatch(songTitle:String, objects:List[SPT.Song] = songBatch, result:List[SPT.Song] = List()){
     objects match {
       case head::tail if(head.songTitle == songTitle) => removeSongFromBatch(songTitle,tail,result)
       case head::tail => removeSongFromBatch(songTitle,tail,result :+ head)
@@ -116,38 +96,8 @@ class ServerLink {
    * uses songBatch and adds its songs SongLibrary on Parse.
    * ASync
    */
-  @tailrec
-  final def addSongBatch(objects:List[Song] = songBatch): Unit ={ //Might have to add a completion handler
-    if(songBatch.isEmpty){
-      return
-    }
-    PF.songObjects = PF.songObjects :+ new PF.SongObject(objects.head.uri,objects.head.songTitle,objects.head.trackArtist,partyObject.partyID,1)
-    val tempList = songsVoted(partyObject.partyID) :+ objects.head.uri
-    songsVoted += (partyObject.partyID -> tempList)
-    addSongBatch(objects.tail)
-
-  }
-
-  /**
-   * Adds a uri of a song voted on into songsVoted.
-   * Used to know which songs are voted on in a party already by a user.
-   */
-  def voteURI(uri:String){
-    val tempList = songsVoted(partyObject.partyID) :+ uri
-    songsVoted += (partyObject.partyID -> tempList)
-  }
-
-  /**
-   * Removes a uri of a song voted on into songsVoted.
-   * Used to know which songs are voted on in a party already by a user.
-   */
-  @tailrec
-  final def unVoteURI(uri:String,objects:List[String] = songsVoted(partyObject.partyID), result:List[String] = List()){
-    objects match{
-      case head::tail if(head == uri) => unVoteURI(uri,tail,result)
-      case head::tail => unVoteURI(uri,tail,result :+ head)
-      case _ => songsVoted += (partyObject.partyID -> result)
-    }
+  def addSongBatch(objects:List[SPT.Song] = songBatch): Unit ={
+    PF.addSongs(objects,partyObject.partyID)
   }
 
   /**
@@ -155,9 +105,15 @@ class ServerLink {
    * -takes in a String(songURI) -> the Spotify track URI for the song voted on.
    * uses that to find the correct song.
    */
-  def increment(songURI:String): Unit ={
-    voteURI(songURI)
-    //PF.increment(songURI)
+  @tailrec
+  final def increment(songURI:String, objects:List[PF.SongObject] = PF.songObjects, partyID:String = partyObject.partyID): Unit ={
+    objects match {
+      case head::tail if(head.uri == songURI && head.partyID == partyID) => {
+        head.increment()
+        return
+      }
+      case head::tail => increment(songURI, tail)
+    }
   }
 
   /**
@@ -165,18 +121,15 @@ class ServerLink {
    * -takes in a String(songURI) -> the Spotify track URI for the song voted on.
    * uses that to find the correct song.
    */
-  def decrement(songURI:String): Unit ={
-    unVoteURI(songURI)
-   // PF.decrement(songURI)
-  }
-
-  /**
-   * This is a function that can be activated by the user in createRoom
-   * This will remove songs from songLibrary on Parse if
-   * the song has note been voted above 1 vote for 5 consecutive songs played.
-   */
-  def songClean(): Unit ={
-
+  @tailrec
+  final def decrement(songURI:String, objects:List[PF.SongObject] = PF.songObjects, partyID:String = partyObject.partyID): Unit ={
+    objects match {
+      case head::tail if(head.uri == songURI && head.partyID == partyID) => {
+        head.decrement()
+        return
+      }
+      case head::tail => decrement(songURI, tail)
+    }
   }
 
   /**
@@ -185,14 +138,14 @@ class ServerLink {
    *      uri:String -> used to find the song to remove.
    */
   def removeSong(uri:String): Unit ={
-
+    PF.removeSong(uri,partyObject.partyID)
   }
-
 
   /**
    * Asynchronous way to get an updated list of music in the song queue.
    */
-  def getQueue(): Unit = { //Might have to add a completion handler.
+  def getQueue(): Unit = {
+    this.musicList = query.findObjects(partyObject.partyID)
 
   }
 
